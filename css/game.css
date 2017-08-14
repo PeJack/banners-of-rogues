@@ -1,0 +1,56 @@
+.gamecontainer {
+	width: 640px;
+	height: 535px;
+	background: black;
+	text-align: center;
+	margin: 0 auto;
+	border: 1px solid gray;
+}
+
+
+#gameinterface canvas {
+	position: absolute;
+	left:0;
+	top:0;
+	width:100%;
+	height:100%;
+}
+
+.inputcanvas{
+	cursor: url(../images/blank.gif), none;
+}
+
+.gamelayer {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+}
+
+#loadingscreen {
+	background-color:rgb(0,0,0);
+	background-color:rgba(0,0,0,0.5);
+	z-index: 10000;
+}
+
+#loadingbar {
+	position:relative;
+	top:90%;
+	text-align: center;
+	font-size: 11px;
+	color: gray;
+}
+
+#gameinterface {
+	background: url(../images/main_title.jpg) no-repeat center;
+	background-size: 100% auto; 
+	width: 640px;
+	height: 535px;
+}
+
+.game-menu {
+	display:none;
+	position: absolute;
+	color:rgb(4,161,46);
+	font-family: Arial, Helvetica, sans-serif;
+	font:13px;
+}
