@@ -21,38 +21,38 @@ export class Infantry {
                     {
                         name: "stand",
                         count: 8
-                    }, 
-                    {
-                        name: "guard",
-                        count: 8
-                    }, 
+                    },                    
                     {
                         name: "run",
                         count: 6,
                         direction: true
-                    }, 
+                    },
+                    {
+                        name: "guard",
+                        count: 30
+                    },
+                    {
+                        name: "crawl",
+                        count: 6,
+                        direction: true
+                    },                     
+                    {
+                        name: "die-1",
+                        count: 15
+                    },   
+                    {
+                        name: "die-2",
+                        count: 15
+                    },                      
                     {
                         name: "fire",
-                        count: 8,
+                        count: 6,
                         direction: true
-                    }, 
+                    },
                     {
-                        name: "down",
-                        count: 2,
+                        name: "fire-2",
+                        count: 6,
                         direction: true
-                    }, 
-                    {
-                        name: "up",
-                        count: 2,
-                        direction: true
-                    }, 
-                    {
-                        name: "idle-1",
-                        count: 16
-                    }, 
-                    {
-                        name: "idle-2",
-                        count: 16
                     }
                 ]
             }
@@ -73,12 +73,12 @@ export class Infantry {
             lastMovementY: 0,
             nearCount: 0,
             crushable: true,
-            pixelOffsetX: -26,
-            pixelOffsetY: -16,
+            pixelOffsetX: -30,
+            pixelOffsetY: -20,
             selectOffsetX: -16,
             selectOffsetY: -10,
             pixelHeight: 39,
-            pixelWidth: 50,
+            pixelWidth: 61,
             softCollisionRadius: 4,
             hardCollisionRadius: 2,
             path: undefined,
@@ -87,7 +87,7 @@ export class Infantry {
 
                 if (turnDirection) {
                     let turnAmount = turnDirection / Math.abs(turnDirection);
-                    this.direction = helpers.wrapDirection(this.direction + turnAmount, this.directions)
+                    this.direction = helpers.wrapDirection(this.direction + turnAmount, this.directions);
                 }
             },
             checkCollision: helpers.checkCollision,
@@ -102,13 +102,32 @@ export class Infantry {
                 } else {
                     this.nearCount = 0
                 }
+
                 if (Math.pow(this.orders.to.x - this.x, 2) + Math.pow(this.orders.to.y - this.y, 2) < .25 || Math.pow(this.orders.to.x - this.x, 2) + Math.pow(this.orders.to.y - this.y, 2) < 1 && this.nearCount > 10 || Math.pow(this.orders.to.x - this.x, 2) + Math.pow(this.orders.to.y - this.y, 2) < 4 && this.nearCount > 20 || Math.pow(this.orders.to.x - this.x, 2) + Math.pow(this.orders.to.y - this.y, 2) < 9 && this.nearCount > 30) {
                     this.nearCount = 0;
                     return true
                 }
+                
                 return false
             },
             processOrders: function() {
+                this.lifeCode = helpers.getLifeCode(this);
+
+                if (this.lifeCode == "dead" && this.orders.type != "die") {
+                    this.unselectable = true;
+
+                    if (this.selected) {
+                        this.game.selectItem(this, true)
+                    }
+
+                    this.orders = {
+                        type: "die"
+                    };
+
+                    this.action = "die-1";
+                    this.animationIndex = 0;
+                }
+
                 this.lastMovementX = 0;
                 this.lastMovementY = 0;
                 this.firing = false;
@@ -238,18 +257,6 @@ export class Infantry {
                 case "die":
                     break;
                 }
-            },            
-            moveToDestination: function() {
-                this.moving = true;
-                this.action = "run";
-
-                if (!this.moveTo(this.orders.to)) {
-                    this.moving = "false";
-                    newDirection = helpers.findAngle(this.orders.to, this, this.directions);
-
-                    this.turnTo(newDirection);
-                    this.action = "stand";
-                }
             },
             drawSelection: function() {
                 var x = this.selectOffsetX - this.pixelOffsetX;
@@ -263,7 +270,13 @@ export class Infantry {
                 this.context.beginPath();
                 this.context.rect(x + 9, y - selectBarHeight, selectBarWidth * this.life / this.hitPoints, selectBarHeight);
                 
-                this.context.fillStyle = "lightgreen"
+                if (this.lifeCode == "healthy") {
+                    this.context.fillStyle = "lightgreen";
+                } else if (this.lifeCode == "damaged") {
+                    this.context.fillStyle = "yellow";
+                } else {
+                    this.context.fillStyle = "red";
+                }
 
                 this.context.fill();
                 this.context.beginPath();
@@ -276,7 +289,8 @@ export class Infantry {
                 var y = 0;
                 this.context.clearRect(0, 0, this.pixelWidth, this.pixelHeight);
 
-                this.context.drawImage(this.spriteCanvas, this.imageOffset * this.pixelWidth, this.spriteColorOffset, this.pixelWidth, this.pixelHeight, x, y, this.pixelWidth, this.pixelHeight);
+                this.context.drawImage(this.spriteCanvas, this.imageOffset * this.pixelWidth, 0, this.pixelWidth, this.pixelHeight, x, y, this.pixelWidth, this.pixelHeight);
+                
                 if (this.selected) {
                     this.drawSelection()
                 }
@@ -288,25 +302,19 @@ export class Infantry {
 
                 var interpolatedX = this.x + this.game.movementInterpolationFactor * this.lastMovementX;
                 var interpolatedY = this.y + this.game.movementInterpolationFactor * this.lastMovementY;
+
                 var x = Math.round(interpolatedX * this.game.gridSize) - this.game.viewport.x + this.game.viewport.left;
                 var y = Math.round(interpolatedY * this.game.gridSize) - this.game.viewport.y + this.game.viewport.top;
-
-                if (x < -this.pixelWidth || y < -this.pixelHeight || x > this.game.viewport.width + this.pixelWidth || y > this.game.viewport.height + this.pixelHeight) {
-                    return
-                }
 
                 this.game.foregroundContext.drawImage(this.canvas, x + this.pixelOffsetX, y + this.pixelOffsetY)
             },
             animate: function() {
                 this.cgX = this.x;
                 this.cgY = this.y;
-                this.spriteColorOffset = this.game.colorHash[this.player].index * this.pixelHeight;
 
                 switch (this.action) {
                 case "run":
                 case "fire":
-                case "down":
-                case "up":
                     this.imageList = this.spriteArray[this.action + "-" + this.direction];
 
                     this.imageOffset = this.imageList.offset + this.animationIndex;
@@ -314,31 +322,24 @@ export class Infantry {
 
                     if (this.animationIndex >= this.imageList.count) {
                         this.animationIndex = 0;
-                        if (this.action == "up") {
-                            this.action = "stand"
-                        }
 
                         if (this.action == "fire") {
-                            this.action = "guard"
+                            this.action = "guard";
                         }
                     }
 
                     break;
-                case "guard":
-                    this.imageList = this.spriteArray["guard"];
-                    if (!this.imageList) {
-                        alert(this.name)
-                    }
 
+                case "stand": 
+                case "guard":               
+                    this.imageList = this.spriteArray[this.action];
                     this.imageOffset = this.imageList.offset + this.direction;
                     
                     break;
-                case "stand":
-                    this.imageList = this.spriteArray["stand"];
+                case "die-1":
+                case "die-2":
+                    this.imageList = this.spriteArray[this.action];
                     this.imageOffset = this.imageList.offset + this.direction;
-                    
-                    break;
-                case "hide":
                     break;
                 default:
                     alert("no action called : " + this.action);
@@ -355,13 +356,8 @@ export class Infantry {
 
         $.extend(item, this.defaults);
         $.extend(item, this.list[name]);
-
-        if (details.percentLife) {
-            item.life = item.hitPoints * details.percentLife;
-            delete item.percentLife
-        } else {
-            item.life = item.hitPoints
-        }
+        
+        item.life = item.hitPoints;
 
         $.extend(item, details);
 
@@ -389,7 +385,7 @@ export class Infantry {
             helpers.createSpriteSheetCanvas(image, item.spriteCanvas, "grayscale")
         });
 
-        item.selectImage = this.game.loader.loadImage("images/sidebar/select-small.png");
+        item.selectImage = this.game.loader.loadImage("images/sidebar/select-big.png");
         item.spriteArray = [];
         item.spriteCount = 0;
 
@@ -397,10 +393,6 @@ export class Infantry {
             let constructImageCount = item.spriteImages[i].count;
             let totalImageCount = item.spriteImages[i].totalCount || item.spriteImages[i].count;
             let constructImageName = item.spriteImages[i].name;
-
-            if (typeof item.spriteImages[i].spriteCount !== "undefined") {
-                item.spriteCount = item.spriteImages[i].spriteCount
-            }
 
             if (item.spriteImages[i].direction) {
                 for (let j = 0; j < item.directions; j++) {
@@ -413,10 +405,6 @@ export class Infantry {
                     item.spriteCount += totalImageCount
                 }
             } else {
-                if (typeof item.spriteImages[i].spriteCount !== "undefined") {
-                    item.spriteCount = item.spriteImages[i].spriteCount
-                }
-
                 item.spriteArray[constructImageName] = {
                     name: constructImageName,
                     count: constructImageCount,

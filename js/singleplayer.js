@@ -2,7 +2,7 @@ export class SinglePlayer {
     constructor(game) {
         this.game = game;
 
-        this.gameSpeed = 5;
+        this.gameSpeed = 2;
         this.currentFaction = undefined;        
         this.currentLevel = undefined;
     }

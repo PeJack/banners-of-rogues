@@ -10,6 +10,7 @@ import {SinglePlayer} from './singleplayer';
 // Юнитов и их аттрибуты
 import {Infantry} from './units/infantry';
 import {Weapons} from './units/items/weapons';
+import {Bullets} from './units/items/bullets';
 
 // Хелпер
 import {Helpers} from './helpers';
@@ -69,11 +70,14 @@ export class Game {
         this.selectedUnits = []; 
         this.infantry = [];
         this.walls = [];
+        this.bullets = [];
+        this.controlGroups = [];
 
         window.helpers = new Helpers(this);
 
         this.itemClass = {
-            infantry: new Infantry(this)
+            infantry: new Infantry(this),
+            bullets: new Bullets(this)            
         };
 
         this.init();
@@ -92,7 +96,7 @@ export class Game {
 
         this.weapons      = new Weapons(this);
 
-        this.input.load();     
+        this.input.load();  
         this.map.load("test", this.singleplayer.startLevel);
     }
 
@@ -197,6 +201,10 @@ export class Game {
             }
         }
 
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            this.bullets[i].animate();
+        }
+
         this.fog.animate();
 
         this.sortedItemsArray = $.extend([], this.items);
@@ -246,22 +254,6 @@ export class Game {
             this.drawingInterval = requestAnimationFrame(this.drawingLoop.bind(this))
         }
     } 
-    
-    highlightGrid(i, j, width, height, optionalImage) {
-        let gridSize = this.gridSize;
-
-        if (optionalImage && $(optionalImage).is("img")) {
-            this.foregroundContext.drawImage(optionalImage, i * gridSize + this.viewport.adjustX, j * gridSize + this.viewport.adjustY, width * gridSize, height * gridSize)
-        } else {
-            if (optionalImage) {
-                this.foregroundContext.fillStyle = optionalImage
-            } else {
-                this.foregroundContext.fillStyle = "rgba(225,225,225,0.5)"
-            }
-
-            this.foregroundContext.fillRect(i * gridSize + this.viewport.adjustX, j * gridSize + this.viewport.adjustY, width * gridSize, height * gridSize)
-        }
-    }
 
     remove(item) {
         if (item.selected) {
@@ -335,6 +327,11 @@ export class Game {
         case "trees":
             // not implemented
             break;
+        case "bullets":
+            object = this.itemClass[item.type].add(item);
+            this[item.type].push(object);
+
+            break;            
         default:
             console.log("Не загружен " + item.type + " : " + item.name);
             break
@@ -359,14 +356,14 @@ export class Game {
     }
 
     selectItem(item, shiftPressed, multipleSelection) {
-        if (shiftPressed && item.selected) {
-            item.selected = false;
+        // if (shiftPressed && item.selected) {
+        //     item.selected = false;
             
-            for (let j = this.selectionArrays.length - 1; j >= 0; j--) {
-                this[this.selectionArrays[j]].remove(item)
-            }
-            return
-        }
+        //     for (let j = this.selectionArrays.length - 1; j >= 0; j--) {
+        //         this[this.selectionArrays[j]].remove(item)
+        //     }
+        //     return
+        // }
 
         item.selected = true;
         this.selectedItems.push(item);

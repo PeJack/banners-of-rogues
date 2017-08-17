@@ -348,6 +348,7 @@ export class Helpers {
     findAngle(object, unit, directions) {
         let dy = (object.cgY || object.y) - (unit.cgY || unit.y);
         let dx = (object.cgX || object.x) - (unit.cgX || unit.x);
+
         let angle = this.wrapDirection(directions / 2 + Math.round(Math.atan2(dx, dy) * directions / (2 * Math.PI)), directions);
 
         return angle
@@ -413,5 +414,22 @@ export class Helpers {
         }
 
         return canvas
+    }
+
+    getLifeCode(object) {
+        let lifePercent = helpers.roundFloating(object.life / object.hitPoints);
+        let lifeCode;
+
+        if (lifePercent > .5) {
+            lifeCode = "healthy"
+        } else if (lifePercent > .25) {
+            lifeCode = "damaged"
+        } else if (lifePercent > .05) {
+            lifeCode = "ultra-damaged"
+        } else {
+            lifeCode = "dead"
+        }
+
+        return lifeCode
     }
 }

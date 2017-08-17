@@ -445,6 +445,7 @@ var Helpers = exports.Helpers = function () {
         value: function findAngle(object, unit, directions) {
             var dy = (object.cgY || object.y) - (unit.cgY || unit.y);
             var dx = (object.cgX || object.x) - (unit.cgX || unit.x);
+
             var angle = this.wrapDirection(directions / 2 + Math.round(Math.atan2(dx, dy) * directions / (2 * Math.PI)), directions);
 
             return angle;
@@ -515,6 +516,24 @@ var Helpers = exports.Helpers = function () {
 
             return canvas;
         }
+    }, {
+        key: "getLifeCode",
+        value: function getLifeCode(object) {
+            var lifePercent = helpers.roundFloating(object.life / object.hitPoints);
+            var lifeCode = void 0;
+
+            if (lifePercent > .5) {
+                lifeCode = "healthy";
+            } else if (lifePercent > .25) {
+                lifeCode = "damaged";
+            } else if (lifePercent > .05) {
+                lifeCode = "ultra-damaged";
+            } else {
+                lifeCode = "dead";
+            }
+
+            return lifeCode;
+        }
     }]);
 
     return Helpers;
@@ -557,6 +576,8 @@ var _singleplayer = __webpack_require__(3);
 var _infantry = __webpack_require__(9);
 
 var _weapons = __webpack_require__(10);
+
+var _bullets = __webpack_require__(11);
 
 var _helpers = __webpack_require__(0);
 
@@ -619,11 +640,14 @@ var Game = exports.Game = function () {
         this.selectedUnits = [];
         this.infantry = [];
         this.walls = [];
+        this.bullets = [];
+        this.controlGroups = [];
 
         window.helpers = new _helpers.Helpers(this);
 
         this.itemClass = {
-            infantry: new _infantry.Infantry(this)
+            infantry: new _infantry.Infantry(this),
+            bullets: new _bullets.Bullets(this)
         };
 
         this.init();
@@ -753,6 +777,10 @@ var Game = exports.Game = function () {
                 }
             }
 
+            for (var _i2 = this.bullets.length - 1; _i2 >= 0; _i2--) {
+                this.bullets[_i2].animate();
+            }
+
             this.fog.animate();
 
             this.sortedItemsArray = $.extend([], this.items);
@@ -804,23 +832,6 @@ var Game = exports.Game = function () {
             }
         }
     }, {
-        key: 'highlightGrid',
-        value: function highlightGrid(i, j, width, height, optionalImage) {
-            var gridSize = this.gridSize;
-
-            if (optionalImage && $(optionalImage).is("img")) {
-                this.foregroundContext.drawImage(optionalImage, i * gridSize + this.viewport.adjustX, j * gridSize + this.viewport.adjustY, width * gridSize, height * gridSize);
-            } else {
-                if (optionalImage) {
-                    this.foregroundContext.fillStyle = optionalImage;
-                } else {
-                    this.foregroundContext.fillStyle = "rgba(225,225,225,0.5)";
-                }
-
-                this.foregroundContext.fillRect(i * gridSize + this.viewport.adjustX, j * gridSize + this.viewport.adjustY, width * gridSize, height * gridSize);
-            }
-        }
-    }, {
         key: 'remove',
         value: function remove(item) {
             if (item.selected) {
@@ -838,16 +849,16 @@ var Game = exports.Game = function () {
                 }
             }
 
-            for (var _i2 = this.items.length - 1; _i2 >= 0; _i2--) {
-                if (this.items[_i2].uid == item.uid) {
-                    this.items.splice(_i2, 1);
+            for (var _i3 = this.items.length - 1; _i3 >= 0; _i3--) {
+                if (this.items[_i3].uid == item.uid) {
+                    this.items.splice(_i3, 1);
                     break;
                 }
             }
 
-            for (var _i3 = this.attackableItems.length - 1; _i3 >= 0; _i3--) {
-                if (this.attackableItems[_i3].uid == item.uid) {
-                    this.attackableItems.splice(_i3, 1);
+            for (var _i4 = this.attackableItems.length - 1; _i4 >= 0; _i4--) {
+                if (this.attackableItems[_i4].uid == item.uid) {
+                    this.attackableItems.splice(_i4, 1);
                     break;
                 }
             }
@@ -856,18 +867,18 @@ var Game = exports.Game = function () {
                 var group = this.controlGroups[_j3];
 
                 if (group) {
-                    for (var _i4 = group.length - 1; _i4 >= 0; _i4--) {
-                        if (group[_i4].uid == item.uid) {
-                            group.splice(_i4, 1);
+                    for (var _i5 = group.length - 1; _i5 >= 0; _i5--) {
+                        if (group[_i5].uid == item.uid) {
+                            group.splice(_i5, 1);
                             break;
                         }
                     }
                 }
             }
 
-            for (var _i5 = this[item.type].length - 1; _i5 >= 0; _i5--) {
-                if (this[item.type][_i5].uid == item.uid) {
-                    this[item.type].splice(_i5, 1);
+            for (var _i6 = this[item.type].length - 1; _i6 >= 0; _i6--) {
+                if (this[item.type][_i6].uid == item.uid) {
+                    this[item.type].splice(_i6, 1);
                     break;
                 }
             }
@@ -895,6 +906,11 @@ var Game = exports.Game = function () {
                 case "trees":
                     // not implemented
                     break;
+                case "bullets":
+                    object = this.itemClass[item.type].add(item);
+                    this[item.type].push(object);
+
+                    break;
                 default:
                     console.log("Не загружен " + item.type + " : " + item.name);
                     break;
@@ -921,14 +937,14 @@ var Game = exports.Game = function () {
     }, {
         key: 'selectItem',
         value: function selectItem(item, shiftPressed, multipleSelection) {
-            if (shiftPressed && item.selected) {
-                item.selected = false;
+            // if (shiftPressed && item.selected) {
+            //     item.selected = false;
 
-                for (var j = this.selectionArrays.length - 1; j >= 0; j--) {
-                    this[this.selectionArrays[j]].remove(item);
-                }
-                return;
-            }
+            //     for (let j = this.selectionArrays.length - 1; j >= 0; j--) {
+            //         this[this.selectionArrays[j]].remove(item)
+            //     }
+            //     return
+            // }
 
             item.selected = true;
             this.selectedItems.push(item);
@@ -987,8 +1003,8 @@ var Game = exports.Game = function () {
                         this.selectItem(clickedObject, ev.shiftKey);
                     }
                 } else if (this.selectedUnits.length > 0) {
-                    for (var _i6 = this.selectedUnits.length - 1; _i6 >= 0; _i6--) {
-                        commandUids.push(this.selectedUnits[_i6].uid);
+                    for (var _i7 = this.selectedUnits.length - 1; _i7 >= 0; _i7--) {
+                        commandUids.push(this.selectedUnits[_i7].uid);
                     }
 
                     this.sendCommand(commandUids, {
@@ -1089,7 +1105,7 @@ var SinglePlayer = exports.SinglePlayer = function () {
 
         this.game = game;
 
-        this.gameSpeed = 5;
+        this.gameSpeed = 2;
         this.currentFaction = undefined;
         this.currentLevel = undefined;
     }
@@ -1572,20 +1588,20 @@ var Fog = exports.Fog = function () {
                             for (var k = y0; k <= y1; k++) {
                                 if (j > x0 && j < x1 || k > y0 && k < y1) {
                                     if (this.game.player == player && this.fogGrid[player][k][j]) {
+
                                         this.context.fillStyle = "rgba(100,0,0,0.9)";
-
                                         this.context.beginPath();
-                                        this.context.arc(j * this.game.gridSize + 12, k * this.game.gridSize + 12, 16, 0, 2 * Math.PI, false);
+                                        this.context.arc(j * this.game.gridSize, k * this.game.gridSize + 5, 26, 0, 2 * Math.PI, false);
                                         this.context.fill();
+
                                         this.context.fillStyle = "rgba(100,0,0,0.7)";
-
                                         this.context.beginPath();
-                                        this.context.arc(j * this.game.gridSize + 12, k * this.game.gridSize + 12, 18, 0, 2 * Math.PI, false);
+                                        this.context.arc(j * this.game.gridSize, k * this.game.gridSize + 5, 28, 0, 2 * Math.PI, false);
                                         this.context.fill();
-                                        this.context.fillStyle = "rgba(100,0,0,0.5)";
 
+                                        this.context.fillStyle = "rgba(100,0,0,0.5)";
                                         this.context.beginPath();
-                                        this.context.arc(j * this.game.gridSize + 12, k * this.game.gridSize + 12, 24, 0, 2 * Math.PI, false);
+                                        this.context.arc(j * this.game.gridSize, k * this.game.gridSize + 5, 34, 0, 2 * Math.PI, false);
                                         this.context.fill();
                                     }
 
@@ -2223,30 +2239,30 @@ var Infantry = exports.Infantry = function () {
                     name: "stand",
                     count: 8
                 }, {
-                    name: "guard",
-                    count: 8
-                }, {
                     name: "run",
                     count: 6,
                     direction: true
                 }, {
+                    name: "guard",
+                    count: 30
+                }, {
+                    name: "crawl",
+                    count: 6,
+                    direction: true
+                }, {
+                    name: "die-1",
+                    count: 15
+                }, {
+                    name: "die-2",
+                    count: 15
+                }, {
                     name: "fire",
-                    count: 8,
+                    count: 6,
                     direction: true
                 }, {
-                    name: "down",
-                    count: 2,
+                    name: "fire-2",
+                    count: 6,
                     direction: true
-                }, {
-                    name: "up",
-                    count: 2,
-                    direction: true
-                }, {
-                    name: "idle-1",
-                    count: 16
-                }, {
-                    name: "idle-2",
-                    count: 16
                 }]
             }
         };
@@ -2266,12 +2282,12 @@ var Infantry = exports.Infantry = function () {
             lastMovementY: 0,
             nearCount: 0,
             crushable: true,
-            pixelOffsetX: -26,
-            pixelOffsetY: -16,
+            pixelOffsetX: -30,
+            pixelOffsetY: -20,
             selectOffsetX: -16,
             selectOffsetY: -10,
             pixelHeight: 39,
-            pixelWidth: 50,
+            pixelWidth: 61,
             softCollisionRadius: 4,
             hardCollisionRadius: 2,
             path: undefined,
@@ -2295,13 +2311,32 @@ var Infantry = exports.Infantry = function () {
                 } else {
                     this.nearCount = 0;
                 }
+
                 if (Math.pow(this.orders.to.x - this.x, 2) + Math.pow(this.orders.to.y - this.y, 2) < .25 || Math.pow(this.orders.to.x - this.x, 2) + Math.pow(this.orders.to.y - this.y, 2) < 1 && this.nearCount > 10 || Math.pow(this.orders.to.x - this.x, 2) + Math.pow(this.orders.to.y - this.y, 2) < 4 && this.nearCount > 20 || Math.pow(this.orders.to.x - this.x, 2) + Math.pow(this.orders.to.y - this.y, 2) < 9 && this.nearCount > 30) {
                     this.nearCount = 0;
                     return true;
                 }
+
                 return false;
             },
             processOrders: function processOrders() {
+                this.lifeCode = helpers.getLifeCode(this);
+
+                if (this.lifeCode == "dead" && this.orders.type != "die") {
+                    this.unselectable = true;
+
+                    if (this.selected) {
+                        this.game.selectItem(this, true);
+                    }
+
+                    this.orders = {
+                        type: "die"
+                    };
+
+                    this.action = "die-1";
+                    this.animationIndex = 0;
+                }
+
                 this.lastMovementX = 0;
                 this.lastMovementY = 0;
                 this.firing = false;
@@ -2432,18 +2467,6 @@ var Infantry = exports.Infantry = function () {
                         break;
                 }
             },
-            moveToDestination: function moveToDestination() {
-                this.moving = true;
-                this.action = "run";
-
-                if (!this.moveTo(this.orders.to)) {
-                    this.moving = "false";
-                    newDirection = helpers.findAngle(this.orders.to, this, this.directions);
-
-                    this.turnTo(newDirection);
-                    this.action = "stand";
-                }
-            },
             drawSelection: function drawSelection() {
                 var x = this.selectOffsetX - this.pixelOffsetX;
                 var y = this.selectOffsetY - this.pixelOffsetY;
@@ -2456,7 +2479,13 @@ var Infantry = exports.Infantry = function () {
                 this.context.beginPath();
                 this.context.rect(x + 9, y - selectBarHeight, selectBarWidth * this.life / this.hitPoints, selectBarHeight);
 
-                this.context.fillStyle = "lightgreen";
+                if (this.lifeCode == "healthy") {
+                    this.context.fillStyle = "lightgreen";
+                } else if (this.lifeCode == "damaged") {
+                    this.context.fillStyle = "yellow";
+                } else {
+                    this.context.fillStyle = "red";
+                }
 
                 this.context.fill();
                 this.context.beginPath();
@@ -2469,7 +2498,8 @@ var Infantry = exports.Infantry = function () {
                 var y = 0;
                 this.context.clearRect(0, 0, this.pixelWidth, this.pixelHeight);
 
-                this.context.drawImage(this.spriteCanvas, this.imageOffset * this.pixelWidth, this.spriteColorOffset, this.pixelWidth, this.pixelHeight, x, y, this.pixelWidth, this.pixelHeight);
+                this.context.drawImage(this.spriteCanvas, this.imageOffset * this.pixelWidth, 0, this.pixelWidth, this.pixelHeight, x, y, this.pixelWidth, this.pixelHeight);
+
                 if (this.selected) {
                     this.drawSelection();
                 }
@@ -2481,25 +2511,19 @@ var Infantry = exports.Infantry = function () {
 
                 var interpolatedX = this.x + this.game.movementInterpolationFactor * this.lastMovementX;
                 var interpolatedY = this.y + this.game.movementInterpolationFactor * this.lastMovementY;
+
                 var x = Math.round(interpolatedX * this.game.gridSize) - this.game.viewport.x + this.game.viewport.left;
                 var y = Math.round(interpolatedY * this.game.gridSize) - this.game.viewport.y + this.game.viewport.top;
-
-                if (x < -this.pixelWidth || y < -this.pixelHeight || x > this.game.viewport.width + this.pixelWidth || y > this.game.viewport.height + this.pixelHeight) {
-                    return;
-                }
 
                 this.game.foregroundContext.drawImage(this.canvas, x + this.pixelOffsetX, y + this.pixelOffsetY);
             },
             animate: function animate() {
                 this.cgX = this.x;
                 this.cgY = this.y;
-                this.spriteColorOffset = this.game.colorHash[this.player].index * this.pixelHeight;
 
                 switch (this.action) {
                     case "run":
                     case "fire":
-                    case "down":
-                    case "up":
                         this.imageList = this.spriteArray[this.action + "-" + this.direction];
 
                         this.imageOffset = this.imageList.offset + this.animationIndex;
@@ -2507,9 +2531,6 @@ var Infantry = exports.Infantry = function () {
 
                         if (this.animationIndex >= this.imageList.count) {
                             this.animationIndex = 0;
-                            if (this.action == "up") {
-                                this.action = "stand";
-                            }
 
                             if (this.action == "fire") {
                                 this.action = "guard";
@@ -2517,21 +2538,17 @@ var Infantry = exports.Infantry = function () {
                         }
 
                         break;
-                    case "guard":
-                        this.imageList = this.spriteArray["guard"];
-                        if (!this.imageList) {
-                            alert(this.name);
-                        }
 
-                        this.imageOffset = this.imageList.offset + this.direction;
-
-                        break;
                     case "stand":
-                        this.imageList = this.spriteArray["stand"];
+                    case "guard":
+                        this.imageList = this.spriteArray[this.action];
                         this.imageOffset = this.imageList.offset + this.direction;
 
                         break;
-                    case "hide":
+                    case "die-1":
+                    case "die-2":
+                        this.imageList = this.spriteArray[this.action];
+                        this.imageOffset = this.imageList.offset + this.direction;
                         break;
                     default:
                         alert("no action called : " + this.action);
@@ -2551,12 +2568,7 @@ var Infantry = exports.Infantry = function () {
             $.extend(item, this.defaults);
             $.extend(item, this.list[name]);
 
-            if (details.percentLife) {
-                item.life = item.hitPoints * details.percentLife;
-                delete item.percentLife;
-            } else {
-                item.life = item.hitPoints;
-            }
+            item.life = item.hitPoints;
 
             $.extend(item, details);
 
@@ -2585,7 +2597,7 @@ var Infantry = exports.Infantry = function () {
                 helpers.createSpriteSheetCanvas(image, item.spriteCanvas, "grayscale");
             });
 
-            item.selectImage = this.game.loader.loadImage("images/sidebar/select-small.png");
+            item.selectImage = this.game.loader.loadImage("images/sidebar/select-big.png");
             item.spriteArray = [];
             item.spriteCount = 0;
 
@@ -2593,10 +2605,6 @@ var Infantry = exports.Infantry = function () {
                 var constructImageCount = item.spriteImages[i].count;
                 var totalImageCount = item.spriteImages[i].totalCount || item.spriteImages[i].count;
                 var constructImageName = item.spriteImages[i].name;
-
-                if (typeof item.spriteImages[i].spriteCount !== "undefined") {
-                    item.spriteCount = item.spriteImages[i].spriteCount;
-                }
 
                 if (item.spriteImages[i].direction) {
                     for (var j = 0; j < item.directions; j++) {
@@ -2609,10 +2617,6 @@ var Infantry = exports.Infantry = function () {
                         item.spriteCount += totalImageCount;
                     }
                 } else {
-                    if (typeof item.spriteImages[i].spriteCount !== "undefined") {
-                        item.spriteCount = item.spriteImages[i].spriteCount;
-                    }
-
                     item.spriteArray[constructImageName] = {
                         name: constructImageName,
                         count: constructImageCount,
@@ -2657,15 +2661,25 @@ var Weapons = exports.Weapons = function () {
         this.list = {
             machinegun: {
                 name: "machinegun",
-                damage: 100500,
+                damage: 8,
                 projectile: "invisible",
-                attackSpeed: 20,
+                attackSpeed: 10,
                 range: 3,
                 fire: function fire(from, direction, target) {
                     from.firing = true;
-                    self.cooldown = self.attackSpeed;
+                    this.cooldown = this.attackSpeed;
 
-                    console.log("*Выстрел* Бах!");
+                    self.game.add({
+                        type: "bullets",
+                        name: this.projectile,
+                        x: from.x,
+                        y: from.y,
+                        direction: direction,
+                        directions: from.directions,
+                        target: target,
+                        weapon: this,
+                        from: from.player
+                    });
                 }
             }
         };
@@ -2696,6 +2710,141 @@ var Weapons = exports.Weapons = function () {
     }]);
 
     return Weapons;
+}();
+
+/***/ }),
+/* 11 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Bullets = exports.Bullets = function () {
+    function Bullets(game) {
+        _classCallCheck(this, Bullets);
+
+        this.game = game;
+
+        this.list = {
+            invisible: {
+                name: "invisible",
+                spread: 2
+            }
+        };
+
+        this.defaults = {
+            direction: 0,
+            distanceTravelled: 0,
+            z: 0,
+            delay: 2,
+            offsetIndex: 0,
+            animate: function animate() {
+                if (this.delay) {
+                    this.delay--;
+                }
+
+                var x = void 0,
+                    y = void 0;
+
+                x = this.target.cgX || this.target.x;
+                y = this.target.cgY || this.target.y;
+
+                this.lastMovementY = 0;
+                this.lastMovementX = 0;
+                this.offsetIndex = 0;
+
+                var bulletHasReached = true;
+                this.x = x;
+                this.y = y;
+
+                for (var i = this.game.attackableItems.length - 1; i >= 0; i--) {
+                    var item = game.attackableItems[i];
+
+                    var itemX = item.cgX;
+                    var itemY = item.cgY;
+
+                    if (Math.floor(itemX - this.x) < 3 && Math.floor(itemY - this.y) < 3) {
+                        var leastDistance = Math.pow(Math.pow(itemX - this.x, 2) + Math.pow(itemY - this.y, 2), .5) * game.gridSize;
+
+                        if (leastDistance > item.softCollisionRadius) {
+                            leastDistance -= item.softCollisionRadius;
+                        }
+
+                        var damage = this.weapon.damage;
+                        var damageFactor = Math.pow(.5, Math.floor(leastDistance / 2));
+
+                        if (damageFactor > .125) {
+                            item.life -= damage * damageFactor;
+
+                            if (item.life <= 0) {
+                                item.life = 0;
+                            }
+
+                            item.attacked = true;
+                            this.game.attackedPlayers[item.player] = true;
+                            item.attackedBy = this.from;
+                        }
+                    }
+                }
+
+                this.game.remove(this);
+            },
+            draw: function draw() {
+                if (this.delay) {
+                    return;
+                }
+
+                if (this.image) {
+                    this.interpolatedX = this.x + this.game.movementInterpolationFactor * this.lastMovementX;
+                    this.interpolatedY = this.y - this.z + this.game.movementInterpolationFactor * this.lastMovementY;
+
+                    var x = Math.round(this.interpolatedX * this.game.gridSize) - this.game.viewportX + this.game.viewportLeft - this.pixelWidth / 2;
+                    var y = Math.round(this.interpolatedY * this.game.gridSize) - this.game.viewportY + this.game.viewportTop - this.pixelHeight / 2;
+
+                    if (x < -this.pixelWidth || y < -this.pixelHeight || x > this.game.viewportWidth + this.pixelWidth || y > this.game.viewportHeight + this.pixelHeight) {
+                        return;
+                    }
+
+                    this.game.foregroundContext.drawImage(this.spriteSheet, this.offsetIndex * this.pixelWidth, 0, this.pixelWidth, this.pixelHeight, x, y, this.pixelWidth, this.pixelHeight);
+                }
+            },
+            game: this.game
+        };
+    }
+
+    _createClass(Bullets, [{
+        key: "add",
+        value: function add(details) {
+            var item = {};
+            var name = details.name;
+
+            $.extend(item, this.defaults);
+            $.extend(item, this.list[name]);
+            $.extend(item, details);
+
+            if (details.target) {
+                var target = details.target;
+                var targetEnemy = Math.pow(Math.pow(item.x - target.cgX, 2) + Math.pow(item.y - target.cgY, 2), .5) + 1;
+
+                item.target = target;
+
+                if (!item.targetDistance || targetEnemy < item.targetDistance) {
+                    item.targetDistance = targetEnemy;
+                }
+            }
+            return item;
+        }
+    }]);
+
+    return Bullets;
 }();
 
 /***/ })

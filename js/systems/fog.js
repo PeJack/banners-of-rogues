@@ -66,20 +66,20 @@ export class Fog {
                         for (let k = y0; k <= y1; k++) {
                             if (j > x0 && j < x1 || k > y0 && k < y1) {
                                 if (this.game.player == player && this.fogGrid[player][k][j]) {
-                                    this.context.fillStyle = "rgba(100,0,0,0.9)";
-                                    
+                                   
+                                    this.context.fillStyle = "rgba(100,0,0,0.9)"; 
                                     this.context.beginPath();
-                                    this.context.arc(j * this.game.gridSize + 12, k * this.game.gridSize + 12, 16, 0, 2 * Math.PI, false);
+                                    this.context.arc(j * this.game.gridSize, k * this.game.gridSize + 5, 26, 0, 2 * Math.PI, false);
                                     this.context.fill();
-                                    this.context.fillStyle = "rgba(100,0,0,0.7)";
 
+                                    this.context.fillStyle = "rgba(100,0,0,0.7)";
                                     this.context.beginPath();
-                                    this.context.arc(j * this.game.gridSize + 12, k * this.game.gridSize + 12, 18, 0, 2 * Math.PI, false);
+                                    this.context.arc(j * this.game.gridSize, k * this.game.gridSize + 5, 28, 0, 2 * Math.PI, false);
                                     this.context.fill();
-                                    this.context.fillStyle = "rgba(100,0,0,0.5)";
-                                    
+
+                                    this.context.fillStyle = "rgba(100,0,0,0.5)";   
                                     this.context.beginPath();
-                                    this.context.arc(j * this.game.gridSize + 12, k * this.game.gridSize + 12, 24, 0, 2 * Math.PI, false);
+                                    this.context.arc(j * this.game.gridSize, k * this.game.gridSize + 5, 34, 0, 2 * Math.PI, false);
                                     this.context.fill()
                                 }
 
