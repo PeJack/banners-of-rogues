@@ -339,7 +339,13 @@ export class Infantry {
                 case "die-1":
                 case "die-2":
                     this.imageList = this.spriteArray[this.action];
-                    this.imageOffset = this.imageList.offset + this.direction;
+                    this.imageOffset = this.imageList.offset + this.animationIndex;
+                    this.animationIndex++;
+                    
+                    if (this.animationIndex >= this.imageList.count) {
+                        this.game.remove(this);
+                    }
+
                     break;
                 default:
                     alert("no action called : " + this.action);
